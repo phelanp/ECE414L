@@ -83,9 +83,11 @@ static int i;
 static PT_THREAD (protothread_color(struct pt *pt))
 {
     PT_BEGIN(pt);
-      while(1) {
+    int invert = 0;
+    int pb_rst = 1;
+    while(1) {
         // yield time 2 second
-        PT_YIELD_TIME_msec(500) ;
+        PT_YIELD_TIME_msec(100) ;
         
         red = 0xf800;
         blue = 0x001f;
@@ -94,30 +96,46 @@ static PT_THREAD (protothread_color(struct pt *pt))
         black = 0x0;
         color = 0x0;
         
-        int pb;
-        if(mPORTBReadBits(BIT_10)) {
-            pb = 0xffff;
+        //get inputs
+        int sw_red, sw_blue, sw_green, pb;
+        if(mPORTBReadBits(BIT_7))   sw_red   = 1;
+        else                        sw_red   = 0;
+        if(mPORTBReadBits(BIT_8))   sw_blue  = 1;
+        else                        sw_blue  = 0;
+        if(mPORTBReadBits(BIT_9))   sw_green = 1;
+        else                        sw_green = 0;
+        if(mPORTBReadBits(BIT_10))  pb = 1;
+        else                        pb = 0;
+        
+        //toggle logic
+        if(pb && pb_rst) {
+            invert = !invert;
+            pb_rst = 0;
+        } else if(!pb) {
+            pb_rst = 1;
+        }
+        
+        if(pb_rst) {
+            tft_fillCircle(75,50,15, white);
         } else {
-            pb = 0x0000;
+            tft_fillCircle(75,50,15, black);
         }
             
-        
-        
-        if(mPORTBReadBits(BIT_7) & pb) {
+        if(sw_red ^ pb) {
             tft_fillCircle(20,85,15, red);
             color = color | red;
         } else {
             tft_fillCircle(20,85,15, black);
             tft_drawCircle(20,85,15, red);
         }
-        if(mPORTBReadBits(BIT_8) & pb) {
+        if(sw_blue ^ pb) {
             tft_fillCircle(55,85,15, blue);
             color = color | blue;
         } else {
             tft_fillCircle(55,85,15, black);
             tft_drawCircle(55,85,15, blue);
         }
-        if(mPORTBReadBits(BIT_9) & pb) {
+        if(sw_green ^ pb) {
             tft_fillCircle(90,85,15, green);
             color = color | green;
         } else {
