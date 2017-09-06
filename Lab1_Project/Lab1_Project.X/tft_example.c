@@ -1,5 +1,6 @@
 /*
  * Update for 2.4" by Matthew Watkins
+ * Update for Lab 1 - Peter Phelan & Nakul Talwar
  * Author:      Bruce Land
  * Adapted from:
  *              main.c by
@@ -19,25 +20,6 @@
 #define	SYS_FREQ 40000000
 #include "pt_cornell_1_2.h"
 
-/* Demo code for interfacing TFT (ILI9341 controller) to PIC32
- * The library has been modified from a similar Adafruit library
- */
-// Adafruit data:
-/***************************************************
-  This is an example sketch for the Adafruit 2.4" SPI display.
-  This library works with the Adafruit 2.4" TFT Breakout w/SD card
-
-  Check out the links above for our tutorials and wiring diagrams
-  These displays use SPI to communicate, 4 or 5 pins are required to
-  interface (RST is optional)
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit and open-source hardware by purchasing
-  products from Adafruit!
-
-  Written by Limor Fried/Ladyada for Adafruit Industries.
-  MIT license, all text above must be included in any redistribution
- ****************************************************/
-
 // string buffer
 char buffer[60];
 
@@ -46,11 +28,8 @@ char buffer[60];
 // note that UART input and output are threads
 static struct pt pt_led, pt_color, pt_invert;
 
-// system 1 second interval tick
-int sys_time_seconds ;
-
-// === Timer Thread =================================================
-// update a 1 second tick counter
+// === LED Thread ===================================================
+// update every 0.5 seconds to draw text and blink LED
 static PT_THREAD (protothread_led(struct pt *pt)) {
     PT_BEGIN(pt);
      tft_setCursor(0, 0);
@@ -58,10 +37,9 @@ static PT_THREAD (protothread_led(struct pt *pt)) {
      tft_writeString("Welcome to our program!\n");
      mPORTBSetBits(BIT_5);
       while(1) {
-        // yield time 1 second
+        // yield time 0.5 second
         PT_YIELD_TIME_msec(500) ;
         mPORTBToggleBits(BIT_5);
-        // NEVER exit while
       } // END WHILE(1)
   PT_END(pt);
 } // timer thread
@@ -74,7 +52,9 @@ int pb_rst = 1;
 static PT_THREAD (protothread_invert(struct pt *pt)) {
     PT_BEGIN(pt);
         while(1) {
-             PT_YIELD_TIME_msec(10);
+            PT_YIELD_TIME_msec(10);
+            
+            //get input from button
             if(mPORTBReadBits(BIT_10))  pb = 1;
             else                        pb = 0;
         
@@ -90,7 +70,7 @@ static PT_THREAD (protothread_invert(struct pt *pt)) {
 } // pb thread
 
 // === Color Thread =================================================
-// draw 3 color patches for R,G,B from a random number
+// draw 4 color patches based on the switch input
 static int color ;
 static int red, blue, green, white, black;
 static int i;
@@ -99,6 +79,7 @@ static PT_THREAD (protothread_color(struct pt *pt)) {
     while(1) {
         PT_YIELD_TIME_msec(250) ;
         
+        //define colors
         red = 0xf800;
         blue = 0x001f;
         green = 0x07e0;
@@ -115,7 +96,7 @@ static PT_THREAD (protothread_color(struct pt *pt)) {
         if(mPORTBReadBits(BIT_9))   sw_green = 1;
         else                        sw_green = 0;
         
-        //draw circles
+        //draw circles and define mixed color
         if(sw_red ^ invert) {
             tft_fillCircle(20,85,15, red);
             color = color | red;
