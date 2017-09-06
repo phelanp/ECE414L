@@ -114,7 +114,8 @@ static PT_THREAD (protothread_color(struct pt *pt)) {
         else                        sw_blue  = 0;
         if(mPORTBReadBits(BIT_9))   sw_green = 1;
         else                        sw_green = 0;
-            
+        
+        //draw circles
         if(sw_red ^ invert) {
             tft_fillCircle(20,85,15, red);
             color = color | red;
@@ -142,23 +143,6 @@ static PT_THREAD (protothread_color(struct pt *pt)) {
         } else {
             tft_fillCircle(125,85,15, color);
         }
-        
-        
-//        // draw color string
-//        tft_fillRoundRect(0,50, 150, 14, 1, ILI9341_BLACK);// x,y,w,h,radius,color
-//        tft_setCursor(0, 50);
-//        tft_setTextColor(ILI9341_WHITE); tft_setTextSize(1);
-//        sprintf(buffer," %04x  %04x  %04x  %04x", color & 0x1f, color & 0x7e0, color & 0xf800, color);
-//        tft_writeString(buffer);
-//
-//        // draw the actual color patches
-//        tft_fillRoundRect(5,70, 30, 30, 1, color & 0x1f);// x,y,w,h,radius,blues
-//        tft_fillRoundRect(40,70, 30, 30, 1, color & 0x7e0);// x,y,w,h,radius,greens
-//        tft_fillRoundRect(75,70, 30, 30, 1, color & 0xf800);// x,y,w,h,radius,reds
-//        // now draw the RGB mixed color
-//        tft_fillRoundRect(110,70, 30, 30, 1, color);// x,y,w,h,radius,mix color
-//        // NEVER exit while
-        
         
       } // END WHILE(1)
   PT_END(pt);
