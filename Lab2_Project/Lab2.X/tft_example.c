@@ -88,6 +88,7 @@ static PT_THREAD (protothread_comp(struct pt *pt)) {
 
 //interrupt behavior
 void __ISR(_INPUT_CAPTURE_1_VECTOR, ipl2) Charged(void) {
+    INTClearFlag(INT_IC1);
     time = mIC1ReadCapture();
 }
 
@@ -113,7 +114,7 @@ void main(void) {
   //configure input capture
   mIC1ClearIntFlag();
   OpenCapture1(IC_EVERY_RISE_EDGE | IC_INT_1CAPTURE | IC_FEDGE_RISE | IC_ON);
-  ConfigIntCapture1(IC_INT_OFF | IC_INT_PRIOR_0);
+  ConfigIntCapture1(IC_INT_OFF | IC_INT_PRIOR_1);
   
   // === config threads ==========
   // turns OFF UART support and debugger pin
