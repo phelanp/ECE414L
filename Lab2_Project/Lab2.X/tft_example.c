@@ -1,6 +1,6 @@
 /*
  * Update for 2.4" by Matthew Watkins
- * Update for Lab 1 - Peter Phelan & Nakul Talwar
+ * Update for Lab 2 - Peter Phelan & Nakul Talwar
  * Author:      Bruce Land
  * Adapted from:
  *              main.c by
@@ -45,30 +45,32 @@ static PT_THREAD (protothread_led(struct pt *pt)) {
   PT_END(pt);
 } // timer thread
 
-// === Color Thread =================================================
-// draw 4 color patches based on the switch input
+// === Measure Thread =================================================
+// Measure the capacitor
 int time;
 static PT_THREAD (protothread_measure(struct pt *pt)) {
     PT_BEGIN(pt);
-    while(1) {
-        time = 0;        
-        TMR2 = 0;
-        
+    while(1) {               
         //drain capacitor
-        CMP1Open(CMP_DISABLE);
         mPORTBSetPinsDigitalOut(BIT_3);
-        mPORTBClearBits(BIT_3);
+        PT_YIELD_TIME_msec(1);
         
         //charge capacitor
+        WriteTimer23(0);
         mPORTBSetPinsAnalogIn(BIT_3);
-        CMP1Open(CMP_ENABLE);
-        OpenCapture1(IC_ON | IC_TIMER2_SRC);
         
         //wait for charge
         PT_YIELD_TIME_msec(200);
-        
+                
         //compute capacitance
-        
+        tft_setCursor(0, 100);
+        tft_setTextColor(ILI9341_WHITE);  
+        tft_setTextSize(1);
+        tft_fillRect(95,100,105,10, 0x0000);
+        tft_writeString("Time to charge: ");
+        char buffer[12];
+        sprintf(buffer, "%d", time);
+        tft_writeString(buffer);
         
       } // END WHILE(1)
   PT_END(pt);
@@ -87,9 +89,9 @@ static PT_THREAD (protothread_comp(struct pt *pt)) {
 } // color thread
 
 //interrupt behavior
-void __ISR(_INPUT_CAPTURE_1_VECTOR, ipl2) Charged(void) {
-    INTClearFlag(INT_IC1);
+void __ISR(_INPUT_CAPTURE_1_VECTOR, ipl2soft) Charged(void) {
     time = mIC1ReadCapture();
+    INTClearFlag(INT_IC1);
 }
 
 // === Main  ======================================================
@@ -99,32 +101,36 @@ void main(void) {
   ANSELA = 0; ANSELB = 0; CM1CON = 0; CM2CON = 0;
 
   // config i/o
-  mPORTBSetPinsDigitalIn(BIT_7 | BIT_8 | BIT_9 | BIT_10);
+  mPORTBSetPinsDigitalIn(BIT_13);
   mPORTBSetPinsDigitalOut(BIT_5);
   mPORTBSetPinsAnalogIn(BIT_3);
-  CNPDB = (1 << _CNPDB_CNPDB7_POSITION) | (1 << _CNPDB_CNPDB8_POSITION) | 
-          (1 << _CNPDB_CNPDB9_POSITION) | (1 << _CNPDB_CNPDB10_POSITION);
   
   //configure timer
-  //OpenTimer23(T2_OFF);
+  OpenTimer23(T2_ON | T2_PS_1_1, 0xffff);
   
   //configure comparators
   CMP1Open(CMP_ENABLE | CMP_POS_INPUT_C1IN_POS | CMP1_NEG_INPUT_IVREF);
   
   //configure input capture
   mIC1ClearIntFlag();
-  OpenCapture1(IC_EVERY_RISE_EDGE | IC_INT_1CAPTURE | IC_FEDGE_RISE | IC_ON);
-  ConfigIntCapture1(IC_INT_OFF | IC_INT_PRIOR_1);
+  OpenCapture1(IC_EVERY_RISE_EDGE | IC_INT_1CAPTURE | IC_TIMER2_SRC
+          | IC_FEDGE_RISE | IC_ON);
+  
+  //configure interrupts
+  INTEnableSystemMultiVectoredInt();
+  INTEnable(INT_IC1, INT_ENABLED);
+  INTSetVectorPriority(INT_INPUT_CAPTURE_1_VECTOR, INT_PRIORITY_LEVEL_2);
+  
+  //ConfigIntCapture1(IC_INT_OFF | IC_INT_PRIOR_1);
+  IC1R = 0x3;
   
   // === config threads ==========
   // turns OFF UART support and debugger pin
   PT_setup();
 
-  // === setup system wide interrupts  ========
-  INTEnableSystemMultiVectoredInt();
-
   // init the threads
   PT_INIT(&pt_led);
+  PT_INIT(&pt_comp);
   PT_INIT(&pt_measure);
 
   // init the display
@@ -137,12 +143,14 @@ void main(void) {
   // seed random color
   srand(1);
 
+  CloseCapture1();
+  CloseTimer23();
   // round-robin scheduler for threads
   while (1){
       PT_SCHEDULE(protothread_led(&pt_led));
       PT_SCHEDULE(protothread_comp(&pt_comp));
+      PT_SCHEDULE(protothread_measure(&pt_measure));
       }
   } // main
 
 // === end  ======================================================
-
