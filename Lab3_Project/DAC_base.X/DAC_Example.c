@@ -41,15 +41,15 @@
 #define dirSS   TRISBbits.TRISB13
 #define anSS    ANSELBbits.ANSB13
 
-#define TABLE_SIZE 32
-int16_t sineTable[TABLE_SIZE] = {0,400,784,1138,1448,1703,1892,2009,2047,2009,1892,1703,1448,1138,784,400,0,-400,-784,-1138,-1448,-1703,-1892,-2009,-2048,-2009,-1892,-1703,-1448,-1138,-784,-400};
+#define TABLE_SIZE 256
+int16_t sineTable[TABLE_SIZE] = {0,50,100,151,201,251,300,350,399,449,497,546,594,642,690,737,783,830,875,920,965,1009,1052,1095,1137,1179,1219,1259,1299,1337,1375,1411,1447,1483,1517,1550,1582,1614,1644,1674,1702,1729,1756,1781,1805,1828,1850,1871,1891,1910,1927,1944,1959,1973,1986,1997,2008,2017,2025,2032,2037,2041,2045,2046,2047,2046,2045,2041,2037,2032,2025,2017,2008,1997,1986,1973,1959,1944,1927,1910,1891,1871,1850,1828,1805,1781,1756,1729,1702,1674,1644,1614,1582,1550,1517,1483,1447,1411,1375,1337,1299,1259,1219,1179,1137,1095,1052,1009,965,920,875,830,783,737,690,642,594,546,497,449,399,350,300,251,201,151,100,50,0,-50,-100,-151,-201,-251,-300,-350,-399,-449,-497,-546,-594,-642,-690,-737,-783,-830,-875,-920,-965,-1009,-1052,-1095,-1137,-1179,-1219,-1259,-1299,-1337,-1375,-1411,-1447,-1483,-1517,-1550,-1582,-1614,-1644,-1674,-1702,-1729,-1756,-1781,-1805,-1828,-1850,-1871,-1891,-1910,-1927,-1944,-1959,-1973,-1986,-1997,-2008,-2017,-2025,-2032,-2037,-2041,-2045,-2046,-2047,-2046,-2045,-2041,-2037,-2032,-2025,-2017,-2008,-1997,-1986,-1973,-1959,-1944,-1927,-1910,-1891,-1871,-1850,-1828,-1805,-1781,-1756,-1729,-1702,-1674,-1644,-1614,-1582,-1550,-1517,-1483,-1447,-1411,-1375,-1337,-1299,-1259,-1219,-1179,-1137,-1095,-1052,-1009,-965,-920,-875,-830,-783,-737,-690,-642,-594,-546,-497,-449,-399,-350,-300,-251,-201,-151,-100,-50};
 int16_t triangleTable[TABLE_SIZE];
 
 #define F_CPU 40000000
-#define F_dac 20000000
+#define F_dac 550000
 const short PR = F_CPU/F_dac - 1;
 
-volatile uint8_t counter = 0;
+volatile uint16_t counter = 0;
 
 void initDAC(void){
     anSS = 0;
@@ -71,20 +71,24 @@ inline void writeDAC(uint16_t data){
 }
 
 void initTimers(void){
-    OpenTimer1(T1_ON | T1_PS_1_1, PR);
-    // Configure T1 for DAC update frequency
-    ConfigIntTimer1(T1_INT_ON | T1_INT_PRIOR_2);
+    OpenTimer2(T2_ON | T2_PS_1_1, PR);
+    // Configure T2 for DAC update frequency
+    ConfigIntTimer2(T2_INT_ON | T2_INT_PRIOR_2);
     
 }
 
-void __ISR(_TIMER_1_VECTOR, ipl2) T1Int(void){
-    int16_t sine_val = 2048+sineTable[counter];
+uint16_t note_incr = 0x100;
+uint16_t table_index;
+void __ISR(_TIMER_2_VECTOR, ipl2) T2Int(void){
+    table_index = counter;
+    table_index = table_index>>8;
+    int16_t sine_val = 2048+sineTable[table_index];
     writeDAC(0x3000 | sine_val); // write to channel A, gain = 1
     //writeDAC(0xB000 | triangleTable[counter]); // write to channel B, gain = 1
-    counter++;
-    if (counter == TABLE_SIZE) counter = 0;
+    counter += note_incr;
+    if (table_index == TABLE_SIZE) counter = 0;
     LATAINV = 1;
-    mT1ClearIntFlag();
+    mT2ClearIntFlag();
 }
 
 int main(void) {
